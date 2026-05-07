@@ -49,9 +49,17 @@ pub fn main(init: std.process.Init) !void {
 
         const word_bank_text = try std.mem.join(gpa, " ", word_bank.word_bank);
         defer gpa.free(word_bank_text);
-        const text = try std.mem.join(gpa, "\n", &.{ word_bank_text, &user_input_buffer });
-        defer gpa.free(text);
-        _ = win.print(&[_]vaxis.Segment{.{ .text = text }}, .{});
+        var print_buffer: [4]u8 = undefined;
+        const count_in_string = try std.fmt.bufPrint(&print_buffer, "{any}", .{count});
+        const segment_slice: []const vaxis.Segment = &.{
+            .{ .text = word_bank_text },
+            .{ .text = "\n" },
+            .{ .text = &user_input_buffer },
+            .{ .text = "\n" },
+            .{ .text = "count: " },
+            .{ .text = count_in_string },
+        };
+        _ = win.print(segment_slice, .{});
 
         try vx.render(writer);
     }
