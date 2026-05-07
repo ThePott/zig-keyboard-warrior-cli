@@ -38,7 +38,6 @@ pub fn main(init: std.process.Init) !void {
             else => {},
         }
 
-        // 4. Drawing logic
         const win = vx.window();
         win.clear();
 
@@ -49,10 +48,5 @@ pub fn main(init: std.process.Init) !void {
         _ = win.print(&[_]vaxis.Segment{.{ .text = text }}, .{});
 
         try vx.render(writer);
-
-        //         try win.print(&[_]vaxis.Segment{
-        //     .{ .text = "count: " },
-        //     .{ .text = count_in_string },
-        // }, .{});
     }
 }
