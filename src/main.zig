@@ -9,6 +9,10 @@ const Event = union(enum) {
     mouse_focus: vaxis.Mouse,
 };
 
+const style_fg_red: vaxis.Style = .{ .fg = .{ .rgb = .{ 213, 77, 83 } } };
+const style_fg_green: vaxis.Style = .{ .fg = .{ .rgb = .{ 185, 201, 75 } } };
+const style_fg_dim: vaxis.Style = .{ .fg = .{ .rgb = .{ 102, 102, 102 } } };
+
 var count: usize = 0;
 
 pub fn main(init: std.process.Init) !void {
@@ -56,7 +60,7 @@ pub fn main(init: std.process.Init) !void {
         var print_buffer: [4]u8 = undefined;
         const count_in_string = try std.fmt.bufPrint(&print_buffer, "{any}", .{count});
         const segment_slice: []const vaxis.Segment = &.{
-            .{ .text = word_bank_text },
+            .{ .text = word_bank_text, .style = style_fg_green },
             .{ .text = "\n" },
             .{ .text = &user_input_buffer },
             .{ .text = "\n" },
