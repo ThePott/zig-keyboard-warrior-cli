@@ -26,6 +26,8 @@ pub fn main(init: std.process.Init) !void {
     try loop.start(); // MUST NOT DELETE
     defer loop.stop(); // MUST NOT DELETE
 
+    var user_input_buffer: [1024]u8 = undefined;
+
     while (true) {
         const event = try loop.nextEvent();
         switch (event) {
@@ -33,6 +35,9 @@ pub fn main(init: std.process.Init) !void {
                 if (key.matches('c', .{ .ctrl = true })) break;
                 if (key.matches(vaxis.Key.escape, .{})) break;
 
+                if (key.text) |text| {
+                    @memcpy(user_input_buffer[count .. count + text.len], text);
+                }
                 count += 1;
             },
             .winsize => |winsize| try vx.resize(gpa, writer, winsize),
@@ -42,9 +47,9 @@ pub fn main(init: std.process.Init) !void {
         const win = vx.window();
         win.clear();
 
-        const text = try std.mem.join(gpa, " ", word_bank.word_bank);
-
-        // const text = try std.mem.join(gpa, " ", &word_bank.word_bank);
+        const word_bank_text = try std.mem.join(gpa, " ", word_bank.word_bank);
+        defer gpa.free(word_bank_text);
+        const text = try std.mem.join(gpa, "\n", &.{ word_bank_text, &user_input_buffer });
         defer gpa.free(text);
         _ = win.print(&[_]vaxis.Segment{.{ .text = text }}, .{});
 
