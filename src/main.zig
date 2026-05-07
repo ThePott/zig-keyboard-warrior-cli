@@ -1,6 +1,6 @@
 const std = @import("std");
 const vaxis = @import("vaxis");
-const word_bank = @import("./word-bank.zig");
+const word_bank = @import("./word_bank.zig");
 
 const Event = union(enum) {
     key_press: vaxis.Key,
@@ -42,10 +42,9 @@ pub fn main(init: std.process.Init) !void {
         const win = vx.window();
         win.clear();
 
-        // var print_buffer: [4]u8 = undefined;
-        // const count_in_string = try std.fmt.bufPrint(&print_buffer, "{any}", .{count});
-        // const text_many = [_][]const u8{ "count: ", count_in_string };
-        const text = try std.mem.join(gpa, " ", &word_bank.word_bank);
+        const text = try std.mem.join(gpa, " ", word_bank.word_bank);
+
+        // const text = try std.mem.join(gpa, " ", &word_bank.word_bank);
         defer gpa.free(text);
         _ = win.print(&[_]vaxis.Segment{.{ .text = text }}, .{});
 
