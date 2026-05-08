@@ -15,6 +15,28 @@ const style_fg_dim: vaxis.Style = .{ .fg = .{ .rgb = .{ 102, 102, 102 } } };
 
 var count: usize = 0;
 
+/// MUST FREE
+fn compareBankAndInput(allocator: std.mem.Allocator, word_bank_text: []u8, user_input_buffer: []u8) ![]vaxis.Segment {
+    var result = try allocator.alloc(vaxis.Segment, word_bank_text.len);
+    for (0..word_bank_text.len) |index| {
+        if (user_input_buffer[index] == 0) {
+            result[index] = .{ .text = word_bank_text[index .. index + 1], .style = style_fg_dim };
+            continue;
+        }
+
+        if (word_bank_text[index] == user_input_buffer[index]) {
+            result[index] = .{ .text = user_input_buffer[index .. index + 1], .style = style_fg_green };
+            continue;
+        }
+
+        if (word_bank_text[index] != user_input_buffer[index]) {
+            result[index] = .{ .text = user_input_buffer[index .. index + 1], .style = style_fg_red };
+            continue;
+        }
+    }
+    return result;
+}
+
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
     const gpa = init.gpa;
@@ -32,6 +54,12 @@ pub fn main(init: std.process.Init) !void {
 
     var user_input_buffer: [1024]u8 = undefined;
     @memset(&user_input_buffer, 0); // MUST SET
+    //
+    const word_bank_text = try std.mem.join(gpa, " ", word_bank.word_bank);
+    defer gpa.free(word_bank_text);
+    const stylized_word_bank_segment_slice = try compareBankAndInput(gpa, word_bank_text, &user_input_buffer);
+    defer gpa.free(stylized_word_bank_segment_slice);
+    std.debug.print("I have created slice\n", .{});
 
     while (true) {
         const event = try loop.nextEvent();
@@ -55,18 +83,21 @@ pub fn main(init: std.process.Init) !void {
         const win = vx.window();
         win.clear();
 
-        const word_bank_text = try std.mem.join(gpa, " ", word_bank.word_bank);
-        defer gpa.free(word_bank_text);
         var print_buffer: [4]u8 = undefined;
         const count_in_string = try std.fmt.bufPrint(&print_buffer, "{any}", .{count});
-        const segment_slice: []const vaxis.Segment = &.{
-            .{ .text = word_bank_text, .style = style_fg_green },
+
+        const latter_segment_slice: []const vaxis.Segment = &.{
             .{ .text = "\n" },
             .{ .text = &user_input_buffer },
             .{ .text = "\n" },
             .{ .text = "count: " },
             .{ .text = count_in_string },
         };
+        const segment_slice = try std.mem.concat(
+            gpa,
+            vaxis.Segment,
+            &.{ stylized_word_bank_segment_slice, latter_segment_slice },
+        );
         _ = win.print(segment_slice, .{});
 
         try vx.render(writer);
