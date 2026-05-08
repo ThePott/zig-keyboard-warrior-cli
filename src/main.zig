@@ -21,17 +21,10 @@ fn compareBankAndInput(allocator: std.mem.Allocator, word_bank_text: []u8, user_
     for (0..word_bank_text.len) |index| {
         if (user_input_buffer[index] == 0) {
             result[index] = .{ .text = word_bank_text[index .. index + 1], .style = style_fg_dim };
-            continue;
-        }
-
-        if (word_bank_text[index] == user_input_buffer[index]) {
+        } else if (word_bank_text[index] == user_input_buffer[index]) {
             result[index] = .{ .text = user_input_buffer[index .. index + 1], .style = style_fg_green };
-            continue;
-        }
-
-        if (word_bank_text[index] != user_input_buffer[index]) {
+        } else {
             result[index] = .{ .text = user_input_buffer[index .. index + 1], .style = style_fg_red };
-            continue;
         }
     }
     return result;
@@ -57,9 +50,6 @@ pub fn main(init: std.process.Init) !void {
     //
     const word_bank_text = try std.mem.join(gpa, " ", word_bank.word_bank);
     defer gpa.free(word_bank_text);
-    const stylized_word_bank_segment_slice = try compareBankAndInput(gpa, word_bank_text, &user_input_buffer);
-    defer gpa.free(stylized_word_bank_segment_slice);
-    std.debug.print("I have created slice\n", .{});
 
     while (true) {
         const event = try loop.nextEvent();
@@ -93,6 +83,8 @@ pub fn main(init: std.process.Init) !void {
             .{ .text = "count: " },
             .{ .text = count_in_string },
         };
+        const stylized_word_bank_segment_slice = try compareBankAndInput(gpa, word_bank_text, &user_input_buffer);
+        defer gpa.free(stylized_word_bank_segment_slice);
         const segment_slice = try std.mem.concat(
             gpa,
             vaxis.Segment,
