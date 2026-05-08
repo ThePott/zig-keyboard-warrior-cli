@@ -17,9 +17,16 @@ var count: usize = 0;
 
 /// MUST FREE
 fn compareBankAndInput(allocator: std.mem.Allocator, word_bank_text: []u8, user_input_buffer: []u8) ![]vaxis.Segment {
-    var result = try allocator.alloc(vaxis.Segment, word_bank_text.len);
-    for (0..word_bank_text.len) |index| {
-        if (user_input_buffer[index] == 0) {
+    var actual_input_length: usize = 0;
+    while (user_input_buffer[actual_input_length] != 0) : (actual_input_length += 1) {}
+
+    const array_length = std.mem.max(usize, &.{ actual_input_length, word_bank_text.len });
+    var result = try allocator.alloc(vaxis.Segment, array_length);
+    for (0..array_length) |index| {
+        // TODO: 여기 데이터 플로우 개선할 수 있을 거 같은데
+        if (index >= word_bank_text.len) {
+            result[index] = .{ .text = user_input_buffer[index .. index + 1], .style = style_fg_red };
+        } else if (user_input_buffer[index] == 0) {
             result[index] = .{ .text = word_bank_text[index .. index + 1], .style = style_fg_dim };
         } else if (word_bank_text[index] == user_input_buffer[index]) {
             result[index] = .{ .text = user_input_buffer[index .. index + 1], .style = style_fg_green };
@@ -90,6 +97,7 @@ pub fn main(init: std.process.Init) !void {
             vaxis.Segment,
             &.{ stylized_word_bank_segment_slice, latter_segment_slice },
         );
+        defer gpa.free(segment_slice);
         _ = win.print(segment_slice, .{});
 
         try vx.render(writer);
