@@ -15,6 +15,11 @@ const style_fg_dim: vaxis.Style = .{ .fg = .{ .rgb = .{ 102, 102, 102 } } };
 
 var count: usize = 0;
 
+// TODO: 완료 로직
+// 1. 엔터 눌렀다, 그리고 입력 글자가 work bank 글자 수보다 같거나 많다
+// 2. 모든 글자가 정답으로 다 적혔다
+// 3. 엔터 눌렀는데 글자 수가 부족하면 재시작
+
 /// MUST FREE
 fn compareBankAndInput(allocator: std.mem.Allocator, word_bank_text: []u8, user_input_buffer: []u8) ![]vaxis.Segment {
     var actual_input_length: usize = 0;
