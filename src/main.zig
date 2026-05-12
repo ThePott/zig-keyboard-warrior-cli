@@ -13,22 +13,37 @@ const style_fg_red: vaxis.Style = .{ .fg = .{ .rgb = .{ 213, 77, 83 } } };
 const style_fg_green: vaxis.Style = .{ .fg = .{ .rgb = .{ 185, 201, 75 } } };
 const style_fg_dim: vaxis.Style = .{ .fg = .{ .rgb = .{ 102, 102, 102 } } };
 
+pub fn checkIsSameStyle(style_1: vaxis.Style, style_2: vaxis.Style) bool {
+    const rgb_1 = style_1.fg.rgb;
+    const rgb_2 = style_2.fg.rgb;
+    for (0..3) |index| {
+        if (rgb_1[index] != rgb_2[index]) return false;
+    }
+    return true;
+}
+
+var typed: usize = 0;
 var count: usize = 0;
+var correct_count: usize = 0;
 
-// TODO: 완료 로직
-// 1. 엔터 눌렀다, 그리고 입력 글자가 work bank 글자 수보다 같거나 많다
-// 2. 모든 글자가 정답으로 다 적혔다
-// 3. 엔터 눌렀는데 글자 수가 부족하면 재시작
+const Statistic = struct {
+    original: usize,
+    typed: usize,
+    wrong: usize,
+};
 
-/// MUST FREE
-fn compareBankAndInput(allocator: std.mem.Allocator, word_bank_text: []u8, user_input_buffer: []u8) ![]vaxis.Segment {
+const CompareBankAndInputReturn = struct {
+    segment_array: []vaxis.Segment,
+    statistic: Statistic,
+};
+
+fn mustFreeCompareBankAndInput(allocator: std.mem.Allocator, word_bank_text: []u8, user_input_buffer: []u8) ![]vaxis.Segment {
     var actual_input_length: usize = 0;
     while (user_input_buffer[actual_input_length] != 0) : (actual_input_length += 1) {}
 
     const array_length = std.mem.max(usize, &.{ actual_input_length, word_bank_text.len });
     var result = try allocator.alloc(vaxis.Segment, array_length);
     for (0..array_length) |index| {
-        // TODO: 여기 데이터 플로우 개선할 수 있을 거 같은데
         if (index >= word_bank_text.len) {
             result[index] = .{ .text = user_input_buffer[index .. index + 1], .style = style_fg_red };
         } else if (user_input_buffer[index] == 0) {
@@ -70,6 +85,8 @@ pub fn main(init: std.process.Init) !void {
                 if (key.matches('c', .{ .ctrl = true })) break;
                 if (key.matches(vaxis.Key.escape, .{})) break;
 
+                typed += 1;
+
                 if (key.matches(vaxis.Key.backspace, .{})) {
                     count = if (count <= 0) 0 else count - 1;
                     user_input_buffer[count] = 0;
@@ -88,19 +105,36 @@ pub fn main(init: std.process.Init) !void {
         var print_buffer: [4]u8 = undefined;
         const count_in_string = try std.fmt.bufPrint(&print_buffer, "{any}", .{count});
 
+        const must_free_stylized_word_bank_segment_slice = try mustFreeCompareBankAndInput(gpa, word_bank_text, &user_input_buffer);
+        defer gpa.free(must_free_stylized_word_bank_segment_slice);
+
+        correct_count = 0; // NOTE: reset counter
+        for (must_free_stylized_word_bank_segment_slice) |segment| {
+            const is_same_style = checkIsSameStyle(segment.style, style_fg_green);
+            if (!is_same_style) continue;
+            correct_count += 1;
+        }
+
+        var correct_count_print_buffer: [4]u8 = undefined;
+        const correct_count_in_string = try std.fmt.bufPrint(&correct_count_print_buffer, "{any}", .{correct_count});
+
+        var typed_print_buffer: [4]u8 = undefined;
+        const typed_in_string = try std.fmt.bufPrint(&typed_print_buffer, "{any}", .{typed});
+
         const latter_segment_slice: []const vaxis.Segment = &.{
             .{ .text = "\n" },
             .{ .text = &user_input_buffer },
-            .{ .text = "\n" },
-            .{ .text = "count: " },
+            .{ .text = "\ncount: " },
             .{ .text = count_in_string },
+            .{ .text = "\ncorrect count: " },
+            .{ .text = correct_count_in_string },
+            .{ .text = "\ntyped in string: " },
+            .{ .text = typed_in_string },
         };
-        const stylized_word_bank_segment_slice = try compareBankAndInput(gpa, word_bank_text, &user_input_buffer);
-        defer gpa.free(stylized_word_bank_segment_slice);
         const segment_slice = try std.mem.concat(
             gpa,
             vaxis.Segment,
-            &.{ stylized_word_bank_segment_slice, latter_segment_slice },
+            &.{ must_free_stylized_word_bank_segment_slice, latter_segment_slice },
         );
         defer gpa.free(segment_slice);
         _ = win.print(segment_slice, .{});
