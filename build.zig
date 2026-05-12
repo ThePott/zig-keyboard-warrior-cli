@@ -26,6 +26,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const zql_dep = b.dependency("zqlite", .{ .target = target, .optimize = optimize });
+
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
     // Zig modules are the preferred way of making Zig code available to consumers.
@@ -89,6 +91,8 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.root_module.addImport("vaxis", vaxis.module("vaxis"));
+
+    exe.root_module.addImport("zqlite", zql_dep.module("zqlite"));
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
