@@ -46,7 +46,7 @@ const Statistic = struct {
         const length = @as(f32, @floatFromInt(correct_count));
         const end_time = std.Io.Clock.real.now(io);
         const time_difference = @as(f32, @floatFromInt(end_time.nanoseconds - start_time.?.nanoseconds));
-        const time_in_minute = time_difference / @as(f32, @floatFromInt(1000 * 1000 * 60));
+        const time_in_minute = time_difference / @as(f32, @floatFromInt(1000 * 1000 * 1000 * 60));
         const word_count = length / @as(f32, @floatFromInt(5));
 
         const wpm = word_count / time_in_minute;
