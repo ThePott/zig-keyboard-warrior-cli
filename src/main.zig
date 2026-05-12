@@ -23,18 +23,40 @@ pub fn checkIsSameStyle(style_1: vaxis.Style, style_2: vaxis.Style) bool {
 }
 
 var typed: usize = 0;
-var count: usize = 0;
+var cursor_index: usize = 0;
 var correct_count: usize = 0;
 
-const Statistic = struct {
-    original: usize,
-    typed: usize,
-    wrong: usize,
-};
+var start_time: ?std.Io.Timestamp = null;
 
-const CompareBankAndInputReturn = struct {
-    segment_array: []vaxis.Segment,
-    statistic: Statistic,
+const bufPrint = std.fmt.bufPrint;
+
+const Statistic = struct {
+    wpm: f32,
+    accuracy: f32,
+    score: f32,
+    pub fn init() Statistic {
+        return .{
+            .wpm = 0,
+            .accuracy = 0,
+            .score = 0,
+        };
+    }
+    pub fn update(self: *Statistic, io: std.Io) void {
+        // if (!checkIsDone(word_bank_text)) return error.NotDoneYet;
+        const length = @as(f32, @floatFromInt(correct_count));
+        const end_time = std.Io.Clock.real.now(io);
+        const time_difference = @as(f32, @floatFromInt(end_time.nanoseconds - start_time.?.nanoseconds));
+        const time_in_minute = time_difference / @as(f32, @floatFromInt(1000 * 1000 * 60));
+        const word_count = length / @as(f32, @floatFromInt(5));
+
+        const wpm = word_count / time_in_minute;
+        const accuracy = length / @as(f32, @floatFromInt(typed));
+        const score = std.math.pow(f32, wpm, accuracy);
+
+        self.wpm = wpm;
+        self.accuracy = accuracy;
+        self.score = score;
+    }
 };
 
 fn mustFreeCompareBankAndInput(allocator: std.mem.Allocator, word_bank_text: []u8, user_input_buffer: []u8) ![]vaxis.Segment {
@@ -81,9 +103,11 @@ pub fn main(init: std.process.Init) !void {
 
     var user_input_buffer: [1024]u8 = undefined;
     @memset(&user_input_buffer, 0); // MUST SET
-    //
+
     const word_bank_text = try std.mem.join(gpa, " ", word_bank.word_bank);
     defer gpa.free(word_bank_text);
+
+    var statistic = Statistic.init();
 
     while (true) {
         const event = try loop.nextEvent();
@@ -92,20 +116,26 @@ pub fn main(init: std.process.Init) !void {
                 if (key.matches('c', .{ .ctrl = true })) break;
                 if (key.matches(vaxis.Key.escape, .{})) break;
 
+                if (start_time == null) {
+                    start_time = std.Io.Clock.real.now(io);
+                }
                 const is_done = checkIsDone(word_bank_text);
+                statistic.update(io);
                 if (is_done) {
-                    if (!key.matches(vaxis.Key.enter, .{})) continue;
+                    if (!key.matches(vaxis.Key.enter, .{})) {
+                        continue;
+                    }
                     break; // TODO: 완료 시, 다음 레벨로 넘어가는 로직 작성해야
                 }
 
                 typed += 1;
 
                 if (key.matches(vaxis.Key.backspace, .{})) {
-                    count = if (count <= 0) 0 else count - 1;
-                    user_input_buffer[count] = 0;
+                    cursor_index = if (cursor_index <= 0) 0 else cursor_index - 1;
+                    user_input_buffer[cursor_index] = 0;
                 } else if (key.text) |text| {
-                    @memcpy(user_input_buffer[count .. count + text.len], text);
-                    count += 1;
+                    @memcpy(user_input_buffer[cursor_index .. cursor_index + text.len], text);
+                    cursor_index += 1;
                 }
             },
             .winsize => |winsize| try vx.resize(gpa, writer, winsize),
@@ -116,7 +146,7 @@ pub fn main(init: std.process.Init) !void {
         win.clear();
 
         var count_print_buffer: [4]u8 = undefined;
-        const count_in_string = try std.fmt.bufPrint(&count_print_buffer, "{any}", .{count});
+        const count_in_string = try bufPrint(&count_print_buffer, "{any}", .{cursor_index});
 
         const must_free_stylized_word_bank_segment_slice = try mustFreeCompareBankAndInput(gpa, word_bank_text, &user_input_buffer);
         defer gpa.free(must_free_stylized_word_bank_segment_slice);
@@ -129,20 +159,35 @@ pub fn main(init: std.process.Init) !void {
         }
 
         var correct_count_print_buffer: [4]u8 = undefined;
-        const correct_count_in_string = try std.fmt.bufPrint(&correct_count_print_buffer, "{any}", .{correct_count});
+        const correct_count_in_string = try bufPrint(&correct_count_print_buffer, "{any}", .{correct_count});
 
-        var typed_print_buffer: [4]u8 = undefined;
-        const typed_in_string = try std.fmt.bufPrint(&typed_print_buffer, "{any}", .{typed});
+        var typed_print_buffer: [32]u8 = undefined;
+        const typed_in_string = try bufPrint(&typed_print_buffer, "{any}", .{typed});
+
+        var wpm_print_buffer: [32]u8 = undefined;
+        const wpm_in_string = try bufPrint(&wpm_print_buffer, "{any}", .{statistic.wpm});
+
+        var accuracy_print_buffer: [32]u8 = undefined;
+        const accuracy_in_string = try bufPrint(&accuracy_print_buffer, "{any}", .{statistic.accuracy});
+
+        var score_print_buffer: [32]u8 = undefined;
+        const score_in_string = try bufPrint(&score_print_buffer, "{any}", .{statistic.score});
 
         const latter_segment_slice: []const vaxis.Segment = &.{
             .{ .text = "\n" },
             .{ .text = &user_input_buffer },
-            .{ .text = "\ncount: " },
+            .{ .text = "\ncursor index: " },
             .{ .text = count_in_string },
             .{ .text = "\ncorrect count: " },
             .{ .text = correct_count_in_string },
             .{ .text = "\ntyped in string: " },
             .{ .text = typed_in_string },
+            .{ .text = "\nwpm: " },
+            .{ .text = wpm_in_string },
+            .{ .text = "\naccuracy: " },
+            .{ .text = accuracy_in_string },
+            .{ .text = "\nscore: " },
+            .{ .text = score_in_string },
         };
         const segment_slice = try std.mem.concat(
             gpa,
