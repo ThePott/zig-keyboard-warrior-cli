@@ -57,6 +57,13 @@ fn mustFreeCompareBankAndInput(allocator: std.mem.Allocator, word_bank_text: []u
     return result;
 }
 
+fn checkIsDone(word_bank_text: []u8) bool {
+    const length = word_bank_text.len;
+    if (correct_count < length) return false;
+    if (correct_count == length) return true;
+    unreachable;
+}
+
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
     const gpa = init.gpa;
@@ -85,6 +92,12 @@ pub fn main(init: std.process.Init) !void {
                 if (key.matches('c', .{ .ctrl = true })) break;
                 if (key.matches(vaxis.Key.escape, .{})) break;
 
+                const is_done = checkIsDone(word_bank_text);
+                if (is_done) {
+                    if (!key.matches(vaxis.Key.enter, .{})) continue;
+                    break; // TODO: 완료 시, 다음 레벨로 넘어가는 로직 작성해야
+                }
+
                 typed += 1;
 
                 if (key.matches(vaxis.Key.backspace, .{})) {
@@ -96,14 +109,14 @@ pub fn main(init: std.process.Init) !void {
                 }
             },
             .winsize => |winsize| try vx.resize(gpa, writer, winsize),
-            else => {},
+            else => continue,
         }
 
         const win = vx.window();
         win.clear();
 
-        var print_buffer: [4]u8 = undefined;
-        const count_in_string = try std.fmt.bufPrint(&print_buffer, "{any}", .{count});
+        var count_print_buffer: [4]u8 = undefined;
+        const count_in_string = try std.fmt.bufPrint(&count_print_buffer, "{any}", .{count});
 
         const must_free_stylized_word_bank_segment_slice = try mustFreeCompareBankAndInput(gpa, word_bank_text, &user_input_buffer);
         defer gpa.free(must_free_stylized_word_bank_segment_slice);
